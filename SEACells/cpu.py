@@ -127,36 +127,63 @@ class SEACellsCPU:
         # Pre-compute dot product
         self.K = self.kernel_matrix @ self.kernel_matrix.T
 
-    def construct_kernel_matrix(
-        self, n_neighbors: int = None, graph_construction="union"
-    ):
-        """Construct kernel matrix from data matrix using PCA/SVD and nearest neighbors.
+    # def construct_kernel_matrix(
+    #     self, n_neighbors: int = None, graph_construction="union"
+    # ):
+    #     """Construct kernel matrix from data matrix using PCA/SVD and nearest neighbors.
 
-        :param n_neighbors: (int) number of nearest neighbors to use for graph construction.
-                            If none, use self.n_neighbors, which has a default value of 15.
-        :param graph_construction: (str) method for graph construction. Options are 'union' or 'intersection'.
-                                    Default is 'union', where the neighborhood graph is made symmetric by adding an edge
-                                    (u,v) if either (u,v) or (v,u) is in the neighborhood graph. If 'intersection', the
-                                    neighborhood graph is made symmetric by adding an edge (u,v) if both (u,v) and (v,u)
-                                    are in the neighborhood graph.
-        :return: None.
+    #     :param n_neighbors: (int) number of nearest neighbors to use for graph construction.
+    #                         If none, use self.n_neighbors, which has a default value of 15.
+    #     :param graph_construction: (str) method for graph construction. Options are 'union' or 'intersection'.
+    #                                 Default is 'union', where the neighborhood graph is made symmetric by adding an edge
+    #                                 (u,v) if either (u,v) or (v,u) is in the neighborhood graph. If 'intersection', the
+    #                                 neighborhood graph is made symmetric by adding an edge (u,v) if both (u,v) and (v,u)
+    #                                 are in the neighborhood graph.
+    #     :return: None.
+    #     """
+    #     # input to graph construction is PCA/SVD
+    #     kernel_model = build_graph.SEACellGraph(
+    #         self.ad, self.build_kernel_on, verbose=self.verbose
+    #     )
+
+    #     # K is a sparse matrix representing input to SEACell alg
+    #     if n_neighbors is None:
+    #         n_neighbors = self.n_neighbors
+
+    #     M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
+    #     self.kernel_matrix = M
+
+    #     # Pre-compute dot product
+    #     self.K = self.kernel_matrix @ self.kernel_matrix.T
+
+    #     return
+    def construct_kernel_matrix(self, snn_matrix=None, n_neighbors: int = None, graph_construction="union"):
         """
-        # input to graph construction is PCA/SVD
-        kernel_model = build_graph.SEACellGraph(
-            self.ad, self.build_kernel_on, verbose=self.verbose
-        )
+        Construct kernel matrix from provided SNN matrix or data matrix.
 
-        # K is a sparse matrix representing input to SEACell alg
-        if n_neighbors is None:
-            n_neighbors = self.n_neighbors
-
-        M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
-        self.kernel_matrix = M
+        :param snn_matrix: (csr_matrix) Pre-computed Shared Nearest Neighbors (SNN) matrix
+        :param n_neighbors: (int) Not required when using SNN, retained for compatibility
+        :param graph_construction: (str) Not required for SNN, retained for compatibility
+        :return: None
+        """
+        if snn_matrix is not None:
+            # Directly use the provided SNN matrix
+            assert snn_matrix.shape[0] == self.ad.shape[0], "SNN matrix shape mismatch"
+            self.kernel_matrix = snn_matrix
+        else:
+            # Default behavior using PCA/SVD
+            kernel_model = build_graph.SEACellGraph(self.ad, self.build_kernel_on, verbose=self.verbose)
+            if n_neighbors is None:
+                n_neighbors = self.n_neighbors
+            M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
+            self.kernel_matrix = M
+        
 
         # Pre-compute dot product
         self.K = self.kernel_matrix @ self.kernel_matrix.T
 
         return
+
 
     def initialize_archetypes(self):
         """Initialize B matrix which defines cells as SEACells.
