@@ -103,6 +103,32 @@ class SEACellsCPUDense:
         self.K = self.kernel_matrix @ self.kernel_matrix.T
 
         return
+    def construct_kernel_matrix_updated(self, snn_matrix=None, n_neighbors: int = None, graph_construction="union"):
+        """
+        Construct kernel matrix from provided SNN matrix or data matrix.
+
+        :param snn_matrix: (csr_matrix) Pre-computed Shared Nearest Neighbors (SNN) matrix
+        :param n_neighbors: (int) Not required when using SNN, retained for compatibility
+        :param graph_construction: (str) Not required for SNN, retained for compatibility
+        :return: None
+        """
+        if snn_matrix is not None:
+            # Directly use the provided SNN matrix
+            assert snn_matrix.shape[0] == self.ad.shape[0], "SNN matrix shape mismatch"
+            self.kernel_matrix = snn_matrix
+        else:
+            # Default behavior using PCA/SVD
+            kernel_model = build_graph.SEACellGraph(self.ad, self.build_kernel_on, verbose=self.verbose)
+            if n_neighbors is None:
+                n_neighbors = self.n_neighbors
+            M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
+            self.kernel_matrix = M
+        
+
+        # Pre-compute dot product
+        self.K = self.kernel_matrix @ self.kernel_matrix.T
+
+        return
 
     def initialize_archetypes(self):
         """Initialize B matrix which defines cells as SEACells.
