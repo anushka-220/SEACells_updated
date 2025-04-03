@@ -202,8 +202,7 @@ def rbf_updated(self, k: int = 15, graph_construction="union"):
         # compute kNN and the distance from each point to its nearest neighbors
         #sc.pp.neighbors(self.ad, use_rep=self.build_on, n_neighbors=k, knn=True)
         knn_graph_distances =  self.ad.obsp["snn_graph"] #using snn graph here
-        if not isinstance(knn_graph_distances, csr_matrix):
-            knn_graph_distances = csr_matrix(knn_graph_distances)
+        
         # Binarize distances to get connectivity
         knn_graph = knn_graph_distances.copy()
         knn_graph[knn_graph != 0] = 1
