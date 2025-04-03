@@ -195,7 +195,7 @@ def rbf_updated(self, k: int = 15, graph_construction="union"):
         :return: (sparse matrix) constructed RBF kernel
         """
         import scanpy as sc
-
+        print("Hi you are using the updated code")
         if self.verbose:
             print("Using your precomputed SNN Matrix :) ")
 
