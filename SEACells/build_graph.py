@@ -197,7 +197,7 @@ def rbf_updated(self, k: int = 15, graph_construction="union"):
         import scanpy as sc
 
         if self.verbose:
-            print("Computing kNN graph using scanpy NN ...")
+            print("Using your precomputed SNN Matrix :) ")
 
         # compute kNN and the distance from each point to its nearest neighbors
         #sc.pp.neighbors(self.ad, use_rep=self.build_on, n_neighbors=k, knn=True)

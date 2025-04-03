@@ -115,7 +115,7 @@ class SEACellsCPUDense:
         # K is a sparse matrix representing input to SEACell alg
         if n_neighbors is None:
             n_neighbors = self.n_neighbors
-
+        print("Using the updated rbf kernel code to calculate this matrix")
         M = kernel_model.rbf_updated(n_neighbors, graph_construction=graph_construction)
         self.kernel_matrix = M
 
