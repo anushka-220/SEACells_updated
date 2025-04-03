@@ -88,7 +88,7 @@ class SEACellsCPUDense:
     ):
         """Construct kernel matrix."""
         # input to graph construction is PCA/SVD
-        kernel_model = build_graph.SEACellGraph(
+        kernel_model = build_graph.SEACellGraph( 
             self.ad, self.build_kernel_on, verbose=self.verbose
         )
 
@@ -122,7 +122,7 @@ class SEACellsCPUDense:
             if n_neighbors is None:
                 n_neighbors = self.n_neighbors
             M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
-            self.kernel_matrix = M
+            self.kernel_matrix = M #to check 
         
 
         # Pre-compute dot product

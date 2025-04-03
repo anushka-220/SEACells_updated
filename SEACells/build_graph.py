@@ -187,3 +187,82 @@ class SEACellGraph:
 
         self.M = (similarity_matrix).tocsr()
         return self.M
+
+def rbf_updated(self, k: int = 15, graph_construction="union"):
+        """Initialize adaptive bandwith RBF kernel (as described in C-isomap).
+
+        :param k: (int) number of nearest neighbors for RBF kernel
+        :return: (sparse matrix) constructed RBF kernel
+        """
+        import scanpy as sc
+
+        if self.verbose:
+            print("Computing kNN graph using scanpy NN ...")
+
+        # compute kNN and the distance from each point to its nearest neighbors
+        #sc.pp.neighbors(self.ad, use_rep=self.build_on, n_neighbors=k, knn=True)
+        knn_graph_distances =  self.ad.obsp["snn_graph"] #using snn graph here
+        if not isinstance(knn_graph_distances, csr_matrix):
+            knn_graph_distances = csr_matrix(knn_graph_distances)
+        # Binarize distances to get connectivity
+        knn_graph = knn_graph_distances.copy()
+        knn_graph[knn_graph != 0] = 1
+        # Include self as neighbour
+        knn_graph.setdiag(1)
+
+        self.knn_graph = knn_graph
+        if self.verbose:
+            print("Computing radius for adaptive bandwidth kernel...")
+
+            # compute median distance for each point amongst k-nearest neighbors
+        with Parallel(n_jobs=self.num_cores, backend="threading") as parallel:
+            median = k // 2
+            median_distances = parallel(
+                delayed(kth_neighbor_distance)(knn_graph_distances, median, i)
+                for i in tqdm(range(self.n))
+            )
+
+        # convert to numpy array
+        median_distances = np.array(median_distances)
+
+        if self.verbose:
+            print("Making graph symmetric...")
+
+        print(
+            f"Parameter graph_construction = {graph_construction} being used to build KNN graph..."
+        )
+        if graph_construction == "union":
+            sym_graph = (knn_graph + knn_graph.T > 0).astype(float)
+        elif graph_construction in ["intersect", "intersection"]:
+            knn_graph = (knn_graph > 0).astype(float)
+            sym_graph = knn_graph.multiply(knn_graph.T)
+        else:
+            raise ValueError(
+                f"Parameter graph_construction = {graph_construction} is not valid. \
+             Please select `union` or `intersection`"
+            )
+
+        self.sym_graph = sym_graph
+        if self.verbose:
+            print("Computing RBF kernel...")
+
+        with Parallel(n_jobs=self.num_cores, backend="threading") as parallel:
+            similarity_matrix_rows = parallel(
+                delayed(rbf_for_row)(
+                    sym_graph, self.ad.obsm[self.build_on], median_distances, i
+                )
+                for i in tqdm(range(self.n))
+            )
+
+        if self.verbose:
+            print("Building similarity LIL matrix...")
+
+        similarity_matrix = lil_matrix((self.n, self.n))
+        for i in tqdm(range(self.n)):
+            similarity_matrix[i] = similarity_matrix_rows[i]
+
+        if self.verbose:
+            print("Constructing CSR matrix...")
+
+        self.M = (similarity_matrix).tocsr()
+        return self.M
