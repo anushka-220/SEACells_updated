@@ -107,6 +107,7 @@ class SEACellsCPUDense:
         self, n_neighbors: int = None, graph_construction="union"
     ):
         """Construct kernel matrix."""
+        print("using your code")
         # input to graph construction is PCA/SVD
         kernel_model = build_graph.SEACellGraph( 
             self.ad, self.build_kernel_on, verbose=self.verbose

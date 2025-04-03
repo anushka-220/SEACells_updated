@@ -197,7 +197,7 @@ def rbf_updated(self, k: int = 15, graph_construction="union"):
         import scanpy as sc
         print("Hi you are using the updated code")
         if self.verbose:
-            print("Using your precomputed SNN Matrix :) ")
+            print(" ")
 
         # compute kNN and the distance from each point to its nearest neighbors
         #sc.pp.neighbors(self.ad, use_rep=self.build_on, n_neighbors=k, knn=True)
@@ -211,7 +211,7 @@ def rbf_updated(self, k: int = 15, graph_construction="union"):
 
         self.knn_graph = knn_graph
         if self.verbose:
-            print("Computing radius for adaptive bandwidth kernel...")
+            print("Using your code and Computing radius for adaptive bandwidth kernel...")
 
             # compute median distance for each point amongst k-nearest neighbors
         with Parallel(n_jobs=self.num_cores, backend="threading") as parallel:
