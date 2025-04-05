@@ -172,7 +172,7 @@ class SEACellsCPU:
         if n_neighbors is None:
             n_neighbors = self.n_neighbors
         print("Using the updated rbf kernel code to calculate this matrix")
-        M = kernel_model.rbf_updated(n_neighbors, graph_construction=graph_construction)
+        M = kernel_model.snn_rbf_kernel(graph_construction=graph_construction)
         self.kernel_matrix = M
 
         # Pre-compute dot product

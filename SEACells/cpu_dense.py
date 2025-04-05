@@ -83,26 +83,26 @@ class SEACellsCPUDense:
         # Pre-compute dot product
         self.K = self.kernel_matrix @ self.kernel_matrix.T
 
-    def construct_kernel_matrix(
-        self, n_neighbors: int = None, graph_construction="union"
-    ):
-        """Construct kernel matrix."""
-        # input to graph construction is PCA/SVD
-        kernel_model = build_graph.SEACellGraph( 
-            self.ad, self.build_kernel_on, verbose=self.verbose
-        )
+    # def construct_kernel_matrix(
+    #     self, n_neighbors: int = None, graph_construction="union"
+    # ):
+    #     """Construct kernel matrix."""
+    #     # input to graph construction is PCA/SVD
+    #     kernel_model = build_graph.SEACellGraph( 
+    #         self.ad, self.build_kernel_on, verbose=self.verbose
+    #     )
 
-        # K is a sparse matrix representing input to SEACell alg
-        if n_neighbors is None:
-            n_neighbors = self.n_neighbors
+    #     # K is a sparse matrix representing input to SEACell alg
+    #     if n_neighbors is None:
+    #         n_neighbors = self.n_neighbors
 
-        M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
-        self.kernel_matrix = M
+    #     M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
+    #     self.kernel_matrix = M
 
-        # Pre-compute dot product
-        self.K = self.kernel_matrix @ self.kernel_matrix.T
+    #     # Pre-compute dot product
+    #     self.K = self.kernel_matrix @ self.kernel_matrix.T
 
-        return
+    #     return
     def construct_kernel_matrix_updated(
         self, n_neighbors: int = None, graph_construction="union"
     ):
@@ -116,8 +116,8 @@ class SEACellsCPUDense:
         # K is a sparse matrix representing input to SEACell alg
         if n_neighbors is None:
             n_neighbors = self.n_neighbors
-        print("Using the updated rbf kernel code to calculate this matrix")
-        M = kernel_model.rbf_updated(n_neighbors, graph_construction=graph_construction)
+        print("Using the updated rbf snn kernel code to calculate this matrix")
+        M = kernel_model.snn_rbf_kernel(graph_construction=graph_construction)
         self.kernel_matrix = M
 
         # Pre-compute dot product

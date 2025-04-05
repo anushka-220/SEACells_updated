@@ -14,6 +14,10 @@ NUM_CORES = cpu_count()
 # Helper functions for parallelizing kernel construction
 ##########################################################
 
+   
+def compute_similarity(i, snn_dense):
+    return np.exp(-1 / (snn_dense[i] + 1e-8))
+
 
 def kth_neighbor_distance(distances, k, i):
     """Returns distance to kth nearest neighbor.
@@ -188,7 +192,7 @@ class SEACellGraph:
         self.M = (similarity_matrix).tocsr()
         return self.M
 
-def rbf_updated(self, k: int = 15, graph_construction="union"):
+    def rbf_updated(self, k: int = 15, graph_construction="union"):
         """Initialize adaptive bandwith RBF kernel (as described in C-isomap).
 
         :param k: (int) number of nearest neighbors for RBF kernel
@@ -264,4 +268,45 @@ def rbf_updated(self, k: int = 15, graph_construction="union"):
             print("Constructing CSR matrix...")
 
         self.M = (similarity_matrix).tocsr()
+        return self.M
+  
+
+    def snn_rbf_kernel(self, graph_construction="union"):
+        """
+        Compute the Shared Nearest Neighbor (SNN) based RBF kernel.
+        Instead of Euclidean distance, we use SNN similarity scores.
+        
+        :return: (sparse matrix) SNN-RBF kernel matrix
+        """
+        print("welcome to snn rbf")
+        snn_matrix= self.ad.obsp["snn_graph"]
+        if self.verbose:
+            print("Computing SNN-RBF Kernel...")
+        
+        # Ensure symmetry in SNN matrix (if not already)
+        sym_snn_matrix = (snn_matrix + snn_matrix.T) / 2
+        
+        # Convert to dense format (if needed for iteration)
+        snn_dense = sym_snn_matrix.toarray()
+        
+        # Compute kernel using SNN weights instead of Euclidean distances
+        with Parallel(n_jobs=self.num_cores, backend="threading") as parallel:
+            similarity_matrix_rows = similarity_matrix_rows = parallel(
+                 delayed(compute_similarity)(i, snn_dense) for i in tqdm(range(self.n))
+                    )
+        
+        if self.verbose:
+            print("Building similarity LIL matrix...")
+        
+        similarity_matrix = lil_matrix((self.n, self.n))
+        for i in tqdm(range(self.n)):
+            similarity_matrix[i] = similarity_matrix_rows[i]
+        
+        # Ensure diagonal elements are exactly 1
+        similarity_matrix.setdiag(1.0)
+        
+        if self.verbose:
+            print("Constructing CSR matrix...")
+        
+        self.M = similarity_matrix.tocsr()
         return self.M
