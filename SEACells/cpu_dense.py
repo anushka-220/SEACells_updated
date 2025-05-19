@@ -83,26 +83,26 @@ class SEACellsCPUDense:
         # Pre-compute dot product
         self.K = self.kernel_matrix @ self.kernel_matrix.T
 
-    # def construct_kernel_matrix(
-    #     self, n_neighbors: int = None, graph_construction="union"
-    # ):
-    #     """Construct kernel matrix."""
-    #     # input to graph construction is PCA/SVD
-    #     kernel_model = build_graph.SEACellGraph( 
-    #         self.ad, self.build_kernel_on, verbose=self.verbose
-    #     )
+    def construct_kernel_matrix(
+        self, n_neighbors: int = None, graph_construction="union"
+    ):
+        """Construct kernel matrix."""
+        # input to graph construction is PCA/SVD
+        kernel_model = build_graph.SEACellGraph( 
+            self.ad, self.build_kernel_on, verbose=self.verbose
+        )
 
-    #     # K is a sparse matrix representing input to SEACell alg
-    #     if n_neighbors is None:
-    #         n_neighbors = self.n_neighbors
+        # K is a sparse matrix representing input to SEACell alg
+        if n_neighbors is None:
+            n_neighbors = self.n_neighbors
 
-    #     M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
-    #     self.kernel_matrix = M
+        M = kernel_model.rbf(n_neighbors, graph_construction=graph_construction)
+        self.kernel_matrix = M
 
-    #     # Pre-compute dot product
-    #     self.K = self.kernel_matrix @ self.kernel_matrix.T
+        # Pre-compute dot product
+        self.K = self.kernel_matrix @ self.kernel_matrix.T
 
-    #     return
+        return
     def construct_kernel_matrix_updated(
         self, n_neighbors: int = None, graph_construction="union"
     ):
@@ -116,14 +116,15 @@ class SEACellsCPUDense:
         # K is a sparse matrix representing input to SEACell alg
         if n_neighbors is None:
             n_neighbors = self.n_neighbors
-        print("Using the updated rbf snn kernel code to calculate this matrix")
-        M = kernel_model.snn_rbf_kernel(graph_construction=graph_construction)
+        print("Using the updated snn_kernel to calculate this ")
+        M = kernel_model.snn_kernel()
         self.kernel_matrix = M
 
         # Pre-compute dot product
         self.K = self.kernel_matrix @ self.kernel_matrix.T
 
         return
+ 
     def initialize_archetypes(self):
         """Initialize B matrix which defines cells as SEACells.
 
@@ -369,16 +370,20 @@ class SEACellsCPUDense:
         A = A_prev
 
         t = 0  # current iteration (determine multiplicative update)
-
+        P = self.K @ B
         # precompute some gradient terms
         t2 = (self.K @ B).T
         t1 = t2 @ B
-
+        PtP=t1
+        PtM=t2
+        # Inside _updateA, after PtM is computed
+        if self.verbose:
+            print(f"  DEBUG: _updateA norms: kernel_matrix={np.linalg.norm(self.kernel_matrix.toarray() if isinstance(self.kernel_matrix, csr_matrix) else self.kernel_matrix):.2e}, P={np.linalg.norm(P):.2e}, PtP={np.linalg.norm(PtP):.2e}, PtM={np.linalg.norm(PtM):.2e}")
         # update rows of A for given number of iterations
         while t < self.max_FW_iter:
             # compute gradient (must convert matrix to ndarray)
             G = 2.0 * np.array(t1 @ A - t2) - self.l2_penalty * A
-
+            print(f" _updateA iter {t+1}: Grad norm: {np.linalg.norm(G):.2e}")
             # get argmins
             amins = np.argmin(G, axis=0)
 
@@ -404,16 +409,18 @@ class SEACellsCPUDense:
 
         # keep track of error
         t = 0
-
-        # precompute some terms
         t1 = A @ A.T
         t2 = K @ A.T
-
+        KAt=t2
+        R=t1
+        # Inside _updateB, after KAt is computed
+        if self.verbose:
+              print(f"  DEBUG: _updateB norms: K={np.linalg.norm(self.K.toarray() if isinstance(self.K, csr_matrix) else self.K):.2e}, R={np.linalg.norm(R):.2e}, KAt={np.linalg.norm(KAt):.2e}")
         # update rows of B for a given number of iterations
         while t < self.max_FW_iter:
             # compute gradient (need to convert np.matrix to np.array)
             G = 2.0 * np.array(K @ B @ t1 - t2)
-
+            print(f" _updateB iter {t+1}: Grad norm: {np.linalg.norm(G):.2e}")
             # get all argmins
             amins = np.argmin(G, axis=0)
 
@@ -426,44 +433,40 @@ class SEACellsCPUDense:
 
         return B
 
-    def compute_reconstruction(self, A=None, B=None):
-        """Compute reconstructed data matrix using learned archetypes (SEACells) and assignments.
-
-        :param A: (array) k*n matrix (dense) defining weights used for assigning cells to SEACells
-                If None provided, self.A is used.
-        :param B: (array) n*k matrix (dense) defining SEACells as weighted combinations of cells
-                If None provided, self.B is used.
-        :return: array (n data points x data dimension) representing reconstruction of original data matrix
-        """
+    def compute_reconstruction(self, A=None, B=None, verbose=True):
+        """Compute reconstructed data matrix using learned archetypes (SEACells) and assignments."""
         if A is None:
             A = self.A_
         if B is None:
             B = self.B_
 
         if A is None or B is None:
-            raise RuntimeError(
-                "Either assignment matrix A or archetype matrix B is None."
-            )
-        return (self.kernel_matrix.dot(B)).dot(A)
+            raise RuntimeError("Either assignment matrix A or archetype matrix B is None.")
 
-    def compute_RSS(self, A=None, B=None):
-        """Compute residual sum of squares error in difference between reconstruction and true data matrix.
+     
+        intermediate = self.kernel_matrix.dot(B)
+        reconstruction = intermediate.dot(A)
 
-        :param A: (array) k*n matrix (dense) defining weights used for assigning cells to SEACells
-                If None provided, self.A is used.
-        :param B: (array) n*k matrix (dense) defining SEACells as weighted combinations of cells
-        :param B: (array) n*k matrix (dense) defining SEACells as weighted combinations of cells
-                If None provided, self.B is used.
-        :return:
-            ||X-XBA||^2 - (float) square difference between true data and reconstruction.
-        """
+        if verbose:
+            print(f"[compute_reconstruction] Sample values from reconstruction (first 2 rows):\n{reconstruction[:2]}")
+
+        return reconstruction
+
+    def compute_RSS(self, A=None, B=None, verbose=True):
+        """Compute residual sum of squares error in difference between reconstruction and true data matrix."""
         if A is None:
             A = self.A_
         if B is None:
             B = self.B_
 
-        reconstruction = self.compute_reconstruction(A, B)
-        return np.linalg.norm(self.kernel_matrix - reconstruction)
+        reconstruction = self.compute_reconstruction(A, B, verbose=verbose)
+        residual = self.kernel_matrix - reconstruction
+        rss = np.linalg.norm(residual) ** 2
+
+        if verbose:
+           print(f"  TRACE: RSS calculated: {rss:.5e}")
+      
+        return rss
 
     def plot_convergence(self, save_as=None, show=True):
         """Plot behaviour of squared error over iterations.
@@ -549,6 +552,10 @@ class SEACellsCPUDense:
                     print(f"Starting iteration {n_iter}.")
 
             self.step()
+            if self.verbose:
+                 print(f"INFO: _fit: Completed update iteration {n_iter}. Current RSS: {self.RSS_iters[-1]:.5e}")
+                 if len(self.RSS_iters) > 1:
+                      print(f"INFO: _fit: RSS change: {self.RSS_iters[-2] - self.RSS_iters[-1]:.3e} (Threshold: {self.convergence_threshold:.3e})")
 
             if n_iter == 1 or (n_iter) % 10 == 0:
                 if self.verbose:
@@ -560,7 +567,8 @@ class SEACellsCPUDense:
                 < self.convergence_threshold
             ):
                 if self.verbose:
-                    print(f"Converged after {n_iter} iterations.")
+                    print(f"INFO: Converged after {n_iter} update iterations. RSS diff {self.RSS_iters[-2] - self.RSS_iters[-1]:.3e} < threshold {self.convergence_threshold:.3e}.")
+
                 converged = True
 
         self.Z_ = self.B_.T @ self.K

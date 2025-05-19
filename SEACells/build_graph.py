@@ -279,7 +279,7 @@ class SEACellGraph:
         :return: (sparse matrix) SNN-RBF kernel matrix
         """
         print("welcome to snn rbf")
-        snn_matrix= self.ad.obsp["snn_graph"]
+        snn_matrix= self.ad.obsp["snn_graph_normalized"]
         if self.verbose:
             print("Computing SNN-RBF Kernel...")
         
@@ -310,3 +310,71 @@ class SEACellGraph:
         
         self.M = similarity_matrix.tocsr()
         return self.M
+
+    # def snn_kernel(self, graph_construction="union"):
+    #     """
+    #     Compute the Shared Nearest Neighbor (SNN) similarity kernel.
+    #     Instead of converting SNN to distances and using RBF, we use the raw SNN similarity,
+    #     normalized between 0 and 1 to act as a kernel.
+        
+    #     :return: (sparse matrix) normalized SNN similarity matrix
+    #     """
+    #     print("Welcome to normalized SNN kernel!")
+    #     normalized_snn= self.ad.obsp["snn_graph_normalized"]
+
+        
+    #     normalized_snn.setdiag(1.0)
+    #     print("Converting to CSR format...")
+
+    #     self.M = normalized_snn.tocsr()
+    #     return self.M
+    def snn_kernel(self, graph_construction="union"):
+        """
+        Compute the Shared Nearest Neighbor (SNN) similarity kernel.
+        Instead of converting SNN to distances and using RBF, we use the raw SNN similarity,
+        normalized between 0 and 1 to act as a kernel.
+        
+        :return: (sparse matrix) normalized SNN similarity matrix
+        """
+        print("Welcome to normalized SNN kernel!")
+        normalized_snn= self.ad.obsp["snn_graph"]
+
+        
+        normalized_snn.setdiag(1.0)
+        print("Converting to CSR format...")
+
+        self.M = normalized_snn.tocsr()
+        return self.M
+
+    def snn_kernel_using_normalization(self, sigma=0.3):
+        """
+        Compute a scaled RBF-style kernel from the SNN similarity matrix.
+
+        :param sigma: Bandwidth parameter for RBF scaling.
+        :return: (sparse matrix) RBF-like kernel using SNN similarity values.
+        """
+        from scipy.sparse import coo_matrix
+        import numpy as np
+
+        print("Building SNN-based RBF kernel using the rbf normalized way...")
+        snn_matrix = self.ad.obsp["snn_graph"]
+
+        if self.verbose:
+            print("Symmetrizing the SNN graph...")
+
+        # Ensure symmetry
+        sym_snn = (snn_matrix + snn_matrix.T) / 2
+
+        if self.verbose:
+            print("Scaling SNN with RBF transformation...")
+
+        # Convert to COO format for easy element-wise operations
+        sym_snn = sym_snn.tocoo()
+        rbf_data = np.exp(-((1.0 - sym_snn.data) ** 2) / (2 * sigma ** 2))
+
+        rbf_kernel = coo_matrix((rbf_data, (sym_snn.row, sym_snn.col)), shape=sym_snn.shape)
+
+        # Force diagonal to 1.0
+        rbf_kernel.setdiag(1.0)
+
+        return rbf_kernel.tocsr()
